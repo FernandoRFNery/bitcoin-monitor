@@ -1,0 +1,117 @@
+# First install required modules using:
+# pip install requests flask
+
+import requests
+import time
+from datetime import datetime
+from flask import Flask, render_template_string, jsonify
+from threading import Thread
+
+app = Flask(__name__)
+
+# Global variables
+monitoring = False
+monitor_thread = None
+current_btc_price = 0
+
+def get_bitcoin_price():
+    """Get current Bitcoin price from CoinGecko API"""
+    try:
+        response = requests.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd')
+        return response.json()['bitcoin']['usd']
+    except Exception as e:
+        print(f"Error fetching Bitcoin price: {e}")
+        return None
+
+def monitor_bitcoin():
+    global monitoring, current_btc_price
+    print("Bitcoin price monitoring started...")
+    
+    while monitoring:
+        try:
+            current_btc_price = get_bitcoin_price()
+            time.sleep(5)  # Update every 5 seconds
+        except Exception as e:
+            print(f"Error in monitoring loop: {e}")
+            time.sleep(60)
+
+HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bitcoin Price Monitor</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        .price { font-size: 48px; margin: 20px; }
+        .button { 
+            padding: 15px 30px; 
+            font-size: 18px; 
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        .button.stop { background-color: #f44336; }
+    </style>
+</head>
+<body>
+    <h1>Bitcoin Price Monitor</h1>
+    <div class="price">$<span id="price">0.00</span></div>
+    <button onclick="toggleMonitoring()" id="monitorButton" class="button">Start Monitoring</button>
+
+    <script>
+        function updatePrice() {
+            fetch('/get_price')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('price').textContent = data.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                });
+        }
+
+        function toggleMonitoring() {
+            fetch('/toggle_monitoring')
+                .then(response => response.json())
+                .then(data => {
+                    const button = document.getElementById('monitorButton');
+                    if (data.monitoring) {
+                        button.textContent = 'Stop Monitoring';
+                        button.classList.add('stop');
+                    } else {
+                        button.textContent = 'Start Monitoring';
+                        button.classList.remove('stop');
+                    }
+                });
+        }
+
+        // Update price every 5 seconds
+        setInterval(updatePrice, 5000);
+        updatePrice();
+    </script>
+</body>
+</html>
+'''
+
+@app.route('/')
+def home():
+    return render_template_string(HTML_TEMPLATE)
+
+@app.route('/get_price')
+def get_price():
+    return jsonify({'price': current_btc_price})
+
+@app.route('/toggle_monitoring')
+def toggle_monitoring():
+    global monitoring, monitor_thread
+    
+    monitoring = not monitoring
+    
+    if monitoring and (monitor_thread is None or not monitor_thread.is_alive()):
+        monitor_thread = Thread(target=monitor_bitcoin)
+        monitor_thread.daemon = True
+        monitor_thread.start()
+    
+    return jsonify({'monitoring': monitoring})
+
+if __name__ == "__main__":
+    app.run(debug=True, use_reloader=False)
