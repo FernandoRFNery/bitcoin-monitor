@@ -27,12 +27,21 @@ def get_bitcoin_price():
 def send_whatsapp_alert(message):
     """Send WhatsApp message using CallMeBot"""
     try:
-        url = f'https://api.callmebot.com/whatsapp.php?phone=555191961507&text={message}&apikey=1690058'
-        response = requests.get(url)
-        if response.status_code == 200:
-            print(f"Alert sent successfully")
+        # Send to first number
+        url1 = f'https://api.callmebot.com/whatsapp.php?phone=555191961507&text={message}&apikey=1690058'
+        response1 = requests.get(url1)
+        if response1.status_code == 200:
+            print(f"Alert sent successfully to first number")
         else:
-            print(f"Error sending alert: {response.status_code}")
+            print(f"Error sending alert to first number: {response1.status_code}")
+
+        # Send to second number
+        url2 = f'https://api.callmebot.com/whatsapp.php?phone=555193752182&text={message}&apikey=1823567'
+        response2 = requests.get(url2)
+        if response2.status_code == 200:
+            print(f"Alert sent successfully to second number")
+        else:
+            print(f"Error sending alert to second number: {response2.status_code}")
     except Exception as e:
         print(f"Error sending WhatsApp message: {e}")
 
@@ -272,4 +281,4 @@ def toggle_monitoring():
     return jsonify({'monitoring': monitoring})
 
 if __name__ == "__main__":
-    app.run(debug=True, use_reloader=False)
+    app.run(debug=True, host='0.0.0.0', port=10000, use_reloader=False)
